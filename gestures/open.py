@@ -1,3 +1,4 @@
+from actions.cursor_move import CursorMove
 from gestures.base_gesture import BaseGesture
 from config.settings import FINGER_TIP_IDS
 
@@ -15,3 +16,8 @@ class Open(BaseGesture):
                 fingers_up += 1
 
         return fingers_up >= 4
+    
+    def action(self, landmarks):
+        if self.detect(landmarks):
+            _, cx, cy = landmarks[12]
+            CursorMove().execute(cx, cy)

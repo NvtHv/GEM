@@ -1,20 +1,30 @@
 import cv2
 import sys
 from core.hand_detector import HandDetector
-from core.gesture_recognizer import GestureRecognizer
+from gestures.pinch import Pinch
+from gestures.doublepinch import DoublePinch
+from gestures.open import Open
+from gestures.fist import Fist
 
 cap = cv2.VideoCapture(0)
-detector = HandDetector() 
+detector = HandDetector()
+pinch = Pinch()
+doublepinch = DoublePinch()
+open = Open()
+fist = Fist()
 
 try:
     while True:
         success, img = cap.read()
-        gesture_recognizer = GestureRecognizer()
         img = detector.find_hands(img)
         landmarks = detector.find_position(img)
         
         if landmarks:
-            print(gesture_recognizer.recognize(landmarks))
+            pinch.action(landmarks)
+            doublepinch.action(landmarks)
+            open.action(landmarks)
+            fist.action(landmarks)
+
         cv2.imshow("Hand Detection", img)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):

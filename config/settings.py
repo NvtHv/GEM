@@ -31,7 +31,7 @@ COLORS = {
 
 #Souris (plus fuide dans les mouvements) modif 1
 SMOOTHING_FACTOR = 7      
-PINCH_THRESHOLD  = 0.05
+PINCH_THRESHOLD  = 5
 SCROLL_SPEED     = 3      
 DRAG_THRESHOLD   = 30 
 

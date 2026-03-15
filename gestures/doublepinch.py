@@ -1,5 +1,6 @@
 import math
 import time
+from actions.doubleclick import DoubleClick
 from gestures.base_gesture import BaseGesture
 from config.settings import PINCH_THRESHOLD
 
@@ -21,3 +22,11 @@ class DoublePinch(BaseGesture):
         dist = math.sqrt((thumb[1] - index[1])**2 + (thumb[2] - index[2])**2)
         
         return (dist < PINCH_THRESHOLD and (time.time() - self.last_pinch_time < self.DOUBLE_CLICK_DELAY))
+    
+    def action(self, landmarks):
+        if self.detect(landmarks):
+            if not self.pinching:
+                self.pinching = True
+                DoubleClick().execute()
+        else:
+            self.pinching = False

@@ -20,4 +20,7 @@ class Peace(BaseGesture):
         
         return is_peace
         
+    def action(self, landmarks):
+        if self.detect(landmarks):
+            pass
         
