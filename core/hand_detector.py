@@ -1,7 +1,5 @@
 import cv2
 import mediapipe as mp
-import time
-
 class HandDetector:
 
     def __init__(self, model_path="hand_landmarker.task", num_hands=2):
@@ -50,9 +48,7 @@ class HandDetector:
         landmarks = []
 
         if self.results and self.results.hand_landmarks:
-
             if hand_index < len(self.results.hand_landmarks):
-
                 h, w, _ = img.shape
                 hand = self.results.hand_landmarks[hand_index]
 
@@ -61,3 +57,9 @@ class HandDetector:
                     landmarks.append([id, cx, cy])
 
         return landmarks
+    
+    def get_raw_landmarks(self, hand_index=0):
+        if self.results and self.results.hand_landmarks:
+            if hand_index < len(self.results.hand_landmarks):
+                return self.results.hand_landmarks[hand_index]
+        return None
