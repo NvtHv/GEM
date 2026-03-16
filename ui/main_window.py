@@ -1,9 +1,12 @@
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
+import threading
 from ui.pdf_viewer import PDFViewer
 from ui.mp3_player import MP3Player
 from ui.mp4_player import MP4Player
 from ui.photo_viewer import PhotoViewer
+from gem_detector import run_detection
+
 
 
 class MainWindow(ctk.CTk):
@@ -55,6 +58,14 @@ class MainWindow(ctk.CTk):
         self.photo_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.gem_enabled = False
+        self.gem_thread = None
+        self.gem_stop_event = threading.Event()
+
+        # Etats pour éviter les toggles répétés sur geste tenu
+        self.gesture_active = {
+            'CLOSED_FIST': False,
+            'INDEX_POINT_UP': False,
+        }
 
     def on_close(self):
         """Demande confirmation avant de fermer la fenêtre."""
@@ -66,9 +77,81 @@ class MainWindow(ctk.CTk):
         if self.gem_switch.get() == 1:
             self.gem_enabled = True
             self.gem_state_indicator.configure(text="ON", fg_color="#32d74b", text_color="#000000")
+            self.start_gem_detection()
         else:
             self.gem_enabled = False
             self.gem_state_indicator.configure(text="OFF", fg_color="#ff3b30", text_color="#ffffff")
+            self.stop_gem_detection()
+
+    def start_gem_detection(self):
+        if self.gem_thread and self.gem_thread.is_alive():
+            return
+
+        self.gem_stop_event.clear()
+        self.gem_thread = threading.Thread(target=self._gem_thread_loop, daemon=True)
+        self.gem_thread.start()
+
+    def stop_gem_detection(self):
+        self.gem_stop_event.set()
+
+    def _gem_thread_loop(self):
+        run_detection(stop_fn=self.gem_stop_event.is_set, gesture_callback=self.handle_gesture)
+
+    def handle_gesture(self, gesture_name):
+        current = self.tab_view.get()
+
+        if gesture_name is None:
+            self.gesture_active['CLOSED_FIST'] = False
+            self.gesture_active['INDEX_POINT_UP'] = False
+            return
+
+        if gesture_name == 'INDEX_MOVE':
+            if current == 'PDF':
+                self.pdf_frame.scroll_down()
+
+        elif gesture_name == 'CLOSED_FIST':
+            if not self.gesture_active['CLOSED_FIST']:
+                self.gesture_active['CLOSED_FIST'] = True
+                if current == 'MP3':
+                    self.mp3_frame.toggle_play_pause()
+                elif current == 'MP4':
+                    self.mp4_frame.toggle_play_pause()
+
+        elif gesture_name == 'INDEX_POINT_UP':
+            if not self.gesture_active['INDEX_POINT_UP']:
+                self.gesture_active['INDEX_POINT_UP'] = True
+                self.mp3_frame.increase_volume()
+                self.mp4_frame.increase_volume()
+
+        elif gesture_name == 'ZOOM_IN':
+            if current == 'PDF':
+                self.pdf_frame.zoom_in()
+            elif current == 'Photos':
+                self.photo_frame.zoom_in()
+
+        elif gesture_name == 'ZOOM_OUT':
+            if current == 'PDF':
+                self.pdf_frame.zoom_out()
+            elif current == 'Photos':
+                self.photo_frame.zoom_out()
+
+        elif gesture_name == 'SWIPE_RIGHT':
+            if current == 'PDF':
+                self.pdf_frame.next_page()
+            elif current == 'MP3':
+                self.mp3_frame.play()
+            elif current == 'MP4':
+                self.mp4_frame.play()
+
+        elif gesture_name == 'SWIPE_LEFT':
+            if current == 'PDF':
+                self.pdf_frame.prev_page()
+            elif current == 'MP3':
+                self.mp3_frame.stop()
+            elif current == 'MP4':
+                self.mp4_frame.stop()
+
+
 
     def _switch_view(self, view_class):
         """Change le panneau actif en détruisant l'ancien et en affichant le nouveau."""

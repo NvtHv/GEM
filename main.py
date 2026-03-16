@@ -1,40 +1,12 @@
-import cv2
 import sys
-from core.hand_detector import HandDetector
-from gestures.pinch import Pinch
-from gestures.doublepinch import DoublePinch
-from gestures.open import Open
-from gestures.fist import Fist
-from gestures.peace import Peace
+from pathlib import Path
 
-cap = cv2.VideoCapture(0)
-detector = HandDetector()
-pinch = Pinch()
-doublepinch = DoublePinch()
-open = Open()
-fist = Fist()
-peace = Peace()
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-try:
-    while True:
-        success, img = cap.read()
-        img = detector.find_hands(img)
-        landmarks = detector.find_position(img)
-        
-        if landmarks:
-            pinch.action(landmarks)
-            doublepinch.action(landmarks)
-            open.action(landmarks)
-            fist.action(landmarks)
-            peace.action(landmarks)
+from gem_detector import run_detection
 
-        cv2.imshow("Hand Detection", img)
+if __name__ == '__main__':
+    run_detection()
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-except KeyboardInterrupt:
-    sys.exit()
-
-finally : 
-    cap.release()
-    cv2.destroyAllWindows()

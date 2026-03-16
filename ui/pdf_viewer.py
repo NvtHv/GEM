@@ -270,6 +270,24 @@ class PDFViewer(ctk.CTkFrame):
         if self.doc:
             self.show_page(self.current_page)
 
+    def zoom_in(self):
+        if self.zoom_level < 2.0:
+            self.zoom_level = min(2.0, self.zoom_level + 0.1)
+            self.zoom_slider.set(self.zoom_level)
+            self.show_page(self.current_page)
+
+    def zoom_out(self):
+        if self.zoom_level > 0.5:
+            self.zoom_level = max(0.5, self.zoom_level - 0.1)
+            self.zoom_slider.set(self.zoom_level)
+            self.show_page(self.current_page)
+
+    def scroll_down(self):
+        self.canvas.yview_scroll(1, 'units')
+
+    def scroll_up(self):
+        self.canvas.yview_scroll(-1, 'units')
+
     def open_in_default(self):
         """Ouvre le PDF dans l'application par défaut."""
         if not self.current_file:

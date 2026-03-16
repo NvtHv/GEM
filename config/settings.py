@@ -1,12 +1,24 @@
-import pyautogui
-
 # Paramètres de la caméra
 CAMERA_ID = 0
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 
-#Écran (récupéré automatiquement) modif 1
-SCREEN_WIDTH, SCREEN_HEIGHT = pyautogui.size()
+# Écran (récupération à la demande)
+SCREEN_WIDTH = 640
+SCREEN_HEIGHT = 480
+
+def get_screen_size():
+    """Retourne la taille de l'écran (fallback à 640x480 si pyautogui échoue)."""
+    global SCREEN_WIDTH, SCREEN_HEIGHT
+    if SCREEN_WIDTH != 640 or SCREEN_HEIGHT != 480:
+        return SCREEN_WIDTH, SCREEN_HEIGHT
+
+    try:
+        import pyautogui
+        SCREEN_WIDTH, SCREEN_HEIGHT = pyautogui.size()
+        return SCREEN_WIDTH, SCREEN_HEIGHT
+    except Exception:
+        return SCREEN_WIDTH, SCREEN_HEIGHT
 
 # Paramètres MediaPipe
 MIN_DETECTION_CONFIDENCE = 0.5

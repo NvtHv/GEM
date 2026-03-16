@@ -1,10 +1,10 @@
 from gestures.base_gesture import BaseGesture
 from config.settings import FINGER_TIP_IDS
 
-class Open(BaseGesture):
+class OpenHand(BaseGesture):
     @property
     def name(self):
-        return "MAIN_OUVERTE"
+        return "OPEN_HAND"
     
     def detect(self, landmarks):
         fingers_up = 0
@@ -18,4 +18,5 @@ class Open(BaseGesture):
     
     def action(self, landmarks):
         if self.detect(landmarks):
-            _, cx, cy = landmarks[12]
+            print("Return to main menu")
+

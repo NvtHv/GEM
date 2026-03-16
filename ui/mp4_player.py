@@ -101,6 +101,12 @@ class MP4Player(ctk.CTkFrame):
             self._create_player()
             media = vlc.Media(self.current_file)
             self.player.set_media(media)
+
+            # Démarrage automatique pour éviter écran immobile sur vidéo sans son
+            try:
+                self.player.play()
+            except Exception:
+                pass
             
             # Mettre à jour le titre
             self.label.configure(text=f"📽️ {filename[:20]}{'...' if len(filename) > 20 else ''}")
@@ -125,6 +131,27 @@ class MP4Player(ctk.CTkFrame):
         if self.player:
             self.player.pause()
             self.status_label.configure(text="⏸ Lecture en pause")
+
+    def toggle_play_pause(self):
+        if self.player and self.player.get_media():
+            if self.player.is_playing():
+                self.pause()
+            else:
+                self.play()
+
+    def increase_volume(self, step=10):
+        if self.player:
+            current = self.volume_slider.get()
+            new = min(100, current + step)
+            self.volume_slider.set(new)
+            self.set_volume(new)
+
+    def decrease_volume(self, step=10):
+        if self.player:
+            current = self.volume_slider.get()
+            new = max(0, current - step)
+            self.volume_slider.set(new)
+            self.set_volume(new)
 
     def stop(self):
         """Arrête la lecture et remet à zéro."""
@@ -155,19 +182,29 @@ class MP4Player(ctk.CTkFrame):
 
     def update_progress(self):
         """Met à jour le slider et le label de temps."""
-        if self.player and self.player.is_playing():
-            # Mettre à jour le slider
+        if self.player and self.player.get_media():
             length = self.player.get_length()
             time = self.player.get_time()
-            if length > 0:
+            state = self.player.get_state()
+
+            if length > 0 and time >= 0:
                 position = (time / length) * 100
                 self.progress_slider.set(position)
-                
+
                 # Mettre à jour le label de temps
                 time_str = self._format_time(time)
                 length_str = self._format_time(length)
                 self.time_label.configure(text=f"{time_str} / {length_str}")
-        
+
+            # Si la lecture est bloquée mais le média est prêt, relancer pour les vidéos sans piste audio
+            if state in (vlc.State.Opening, vlc.State.Buffering, vlc.State.Paused, vlc.State.Stopped) and self.current_file:
+                # pour éviter un relancement infini, ne relancer que lorsque la vidéo n'est pas en cours de lecture
+                if not self.player.is_playing() and state != vlc.State.Ended:
+                    try:
+                        self.player.play()
+                    except Exception:
+                        pass
+
         # Rappeler cette fonction toutes les 500ms
         self.after(500, self.update_progress)
 

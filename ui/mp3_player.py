@@ -50,6 +50,12 @@ class MP3Player(ctk.CTkFrame):
         self.progress_slider = ctk.CTkSlider(self, from_=0, to=100, command=self.seek)
         self.progress_slider.pack(pady=5, fill="x", padx=20)
 
+        # Volume de base
+        self.volume_slider = ctk.CTkSlider(self, from_=0, to=100, command=self.set_volume)
+        self.volume_slider.pack(pady=5, fill="x", padx=20)
+        self.volume_slider.set(80)
+        self.set_volume(80)
+
         # Mise à jour périodique de la progression
         self.update_progress()
 
@@ -104,6 +110,29 @@ class MP3Player(ctk.CTkFrame):
             self.player.pause()
             self.status_label.configure(text="Lecture en pause")
             self.video_label.configure(text="🎵 ⏸ Pause")
+
+    def toggle_play_pause(self):
+        if self.player and self.player.get_media():
+            if self.player.is_playing():
+                self.pause()
+            else:
+                self.play()
+
+    def increase_volume(self, step=10):
+        current = int(self.volume_slider.get()) if hasattr(self, 'volume_slider') else 50
+        new = min(100, current + step)
+        self.volume_slider.set(new)
+        self.set_volume(new)
+
+    def decrease_volume(self, step=10):
+        current = int(self.volume_slider.get()) if hasattr(self, 'volume_slider') else 50
+        new = max(0, current - step)
+        self.volume_slider.set(new)
+        self.set_volume(new)
+
+    def set_volume(self, value):
+        if self.player:
+            self.player.audio_set_volume(int(value))
 
     def stop(self):
         """Arrête la lecture."""

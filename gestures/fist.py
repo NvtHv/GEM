@@ -4,7 +4,7 @@ from gestures.base_gesture import BaseGesture
 class Fist(BaseGesture):
     @property
     def name(self):
-        return "POING"
+        return "CLOSED_FIST"
     
     def detect(self, hand_landmarks):
         """Détecte si la main est fermée (poing)"""
@@ -20,4 +20,4 @@ class Fist(BaseGesture):
     
     def action(self, landmarks):
         if self.detect(landmarks):
-            Freeze().execute()
+            print("Play/Pause (MP3 & MP4)")

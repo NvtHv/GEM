@@ -78,3 +78,13 @@ class PhotoViewer(ctk.CTkFrame):
 
         self.image_label.configure(image=self.photo_image, text="")
         self.image_label.image = self.photo_image
+
+    def zoom_in(self):
+        if self.current_image:
+            self.current_image = self.current_image.resize((int(self.current_image.width * 1.1), int(self.current_image.height * 1.1)), Image.LANCZOS)
+            self._display_image()
+
+    def zoom_out(self):
+        if self.current_image:
+            self.current_image = self.current_image.resize((int(self.current_image.width * 0.9), int(self.current_image.height * 0.9)), Image.LANCZOS)
+            self._display_image()
