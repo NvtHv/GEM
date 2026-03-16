@@ -1,7 +1,11 @@
+from actions.screenshot import Screenshot
 from config.settings import FINGER_TIP_IDS
 from gestures.base_gesture import BaseGesture
 
 class Peace(BaseGesture):
+    def __init__(self):
+        self.peace = False
+
     @property
     def name(self):
         return "PAIX"
@@ -22,5 +26,10 @@ class Peace(BaseGesture):
         
     def action(self, landmarks):
         if self.detect(landmarks):
-            pass
+            if not self.peace:
+                self.peace = True
+                Screenshot().execute()
+        else:
+            self.peace = False
+            
         

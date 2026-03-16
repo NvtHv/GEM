@@ -5,6 +5,7 @@ from gestures.pinch import Pinch
 from gestures.doublepinch import DoublePinch
 from gestures.open import Open
 from gestures.fist import Fist
+from gestures.peace import Peace
 
 cap = cv2.VideoCapture(0)
 detector = HandDetector()
@@ -12,6 +13,7 @@ pinch = Pinch()
 doublepinch = DoublePinch()
 open = Open()
 fist = Fist()
+peace = Peace()
 
 try:
     while True:
@@ -24,6 +26,7 @@ try:
             doublepinch.action(landmarks)
             open.action(landmarks)
             fist.action(landmarks)
+            peace.action(landmarks)
 
         cv2.imshow("Hand Detection", img)
 
