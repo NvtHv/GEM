@@ -1,19 +1,18 @@
 import cv2, time
 from core.hand_detector import HandDetector
-from gestures import IndexMove, Fist, ZoomIn, ZoomOut, SwipeLeft, SwipeRight, OpenHand, IndexPointUp
+from gestures import OpenHand, ZoomIn, ZoomOut, SwipeLeft, SwipeRight, IndexPointUp, TwoFingersUp
 
 
 def run_detection(stop_fn=None, gesture_callback=None):
     detector = HandDetector()
     gestures = [
-        IndexMove(),
-        IndexPointUp(),
         OpenHand(),
-        Fist(),
+        IndexPointUp(),
         ZoomIn(),
         ZoomOut(),
         SwipeLeft(),
         SwipeRight(),
+        TwoFingersUp()
     ]
 
     cap = cv2.VideoCapture(0)

@@ -2,27 +2,25 @@ import customtkinter as ctk
 from tkinter import filedialog
 import vlc
 import os
-import tkinter as tk
-
 
 class MP4Player(ctk.CTkFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
 
+        self.instance = None
         self.player = None
         self.current_file = None
-        self.video_panel = None
+        self.is_playing = False
 
         # Titre
         self.label = ctk.CTkLabel(self, text="📽️ Lecteur MP4", font=ctk.CTkFont(size=24, weight="bold"))
         self.label.pack(pady=10)
 
-        # Frame pour la vidéo (zone d'affichage)
+        # Frame pour la vidéo
         self.video_frame = ctk.CTkFrame(self, width=640, height=360, fg_color="black")
         self.video_frame.pack(pady=10, padx=10)
         self.video_frame.pack_propagate(False)
 
-        # Label de placeholder (quand aucune vidéo)
         self.placeholder_label = ctk.CTkLabel(
             self.video_frame, 
             text="🎬 Aucune vidéo chargée", 
@@ -53,6 +51,7 @@ class MP4Player(ctk.CTkFrame):
         # Slider de progression
         self.progress_slider = ctk.CTkSlider(self, from_=0, to=100, command=self.seek)
         self.progress_slider.pack(pady=5, fill="x", padx=20)
+        self.progress_slider.set(0)
 
         # Label de temps
         self.time_label = ctk.CTkLabel(self, text="00:00 / 00:00")
@@ -67,79 +66,82 @@ class MP4Player(ctk.CTkFrame):
 
         self.volume_slider = ctk.CTkSlider(self.volume_frame, from_=0, to=100, command=self.set_volume)
         self.volume_slider.pack(side="left", fill="x", expand=True, padx=5)
-        self.volume_slider.set(80)  # Volume à 80% par défaut
+        self.volume_slider.set(80)
 
-        # Mise à jour périodique de la progression
+        # Initialisation
+        self.after(500, self._setup_player)
         self.update_progress()
 
-    def _create_player(self):
-        """Crée l'instance de player VLC avec intégration vidéo."""
-        if self.player is None:
-            # Créer l'instance VLC avec les paramètres d'intégration
-            self.player = vlc.MediaPlayer()
+    def _setup_player(self):
+        try:
+            # On crée l'instance (enlever --no-audio pour avoir du son)
+            self.instance = vlc.Instance("--quiet") 
+            self.player = self.instance.media_player_new()
             
-            # Cacher le placeholder
-            self.placeholder_label.pack_forget()
-            
-            # Intégrer la vidéo dans le frame selon l'OS
-            if os.name == 'nt':  # Windows
+            # Intégration Windows
+            if os.name == 'nt':
                 self.player.set_hwnd(self.video_frame.winfo_id())
-            else:  # Linux/Mac
-                self.player.set_xwindow(self.video_frame.winfo_id())
+            # Note: Pour Linux, il faudrait utiliser set_xwindow
+                
+            print("✅ Player VLC initialisé")
+        except Exception as e:
+            print(f"❌ Erreur initialisation VLC: {e}")
+            self.status_label.configure(text="Erreur: VLC n'est pas installé sur le système")
 
     def open_mp4(self):
-        """Ouvre un fichier MP4 et prépare la lecture."""
         path = filedialog.askopenfilename(
-            title="Sélectionner un fichier MP4", 
-            filetypes=[("Fichiers vidéo", "*.mp4 *.avi *.mkv *.mov"), ("Tous les fichiers", "*.*")]
+            filetypes=[("Vidéo", "*.mp4 *.avi *.mkv *.mov"), ("Tous", "*.*")]
         )
         if path:
             self.current_file = path
-            filename = os.path.basename(path)
-            self.status_label.configure(text=f"Fichier : {filename[:30]}{'...' if len(filename) > 30 else ''}")
-            
-            self._create_player()
-            media = vlc.Media(self.current_file)
+            self.placeholder_label.pack_forget()
+            media = self.instance.media_new(self.current_file)
             self.player.set_media(media)
-
-            # Démarrage automatique pour éviter écran immobile sur vidéo sans son
-            try:
-                self.player.play()
-            except Exception:
-                pass
-            
-            # Mettre à jour le titre
-            self.label.configure(text=f"📽️ {filename[:20]}{'...' if len(filename) > 20 else ''}")
-        else:
-            self.status_label.configure(text="Aucun fichier sélectionné.")
-            self.current_file = None
+            self.status_label.configure(text=f"Fichier : {os.path.basename(path)}")
+            self.play()
 
     def play(self):
-        """Démarre ou reprend la lecture."""
-        if self.current_file:
-            self._create_player()
-            if self.player.get_media() is None:
-                media = vlc.Media(self.current_file)
-                self.player.set_media(media)
+        if self.player and self.current_file:
             self.player.play()
-            self.status_label.configure(text="▶ Lecture en cours...")
-        else:
-            self.status_label.configure(text="❌ Pas de fichier à lire.")
+            self.is_playing = True
 
     def pause(self):
-        """Met la lecture en pause."""
         if self.player:
             self.player.pause()
-            self.status_label.configure(text="⏸ Lecture en pause")
+            self.is_playing = False
 
-    def toggle_play_pause(self):
-        if self.player and self.player.get_media():
-            if self.player.is_playing():
-                self.pause()
-            else:
-                self.play()
+    def stop(self):
+        if self.player:
+            self.player.stop()
+            self.progress_slider.set(0)
+            self.is_playing = False
 
+    def seek(self, value):
+        if self.player:
+            self.player.set_position(float(value) / 100)
+
+    def set_volume(self, value):
+        if self.player:
+            self.player.audio_set_volume(int(float(value)))
+
+    def update_progress(self):
+        if self.player and self.is_playing:
+            length = self.player.get_length()
+            time = self.player.get_time()
+            if length > 0:
+                pos = (time / length) * 100
+                self.progress_slider.set(pos)
+                self.time_label.configure(text=f"{self._format_time(time)} / {self._format_time(length)}")
+        
+        self.after(500, self.update_progress)
+
+    def _format_time(self, ms):
+        s = ms // 1000
+        m, s = divmod(s, 60)
+        return f"{m:02d}:{s:02d}"
+    
     def increase_volume(self, step=10):
+        """Augmente le volume"""
         if self.player:
             current = self.volume_slider.get()
             new = min(100, current + step)
@@ -147,82 +149,16 @@ class MP4Player(ctk.CTkFrame):
             self.set_volume(new)
 
     def decrease_volume(self, step=10):
+        """Diminue le volume"""
         if self.player:
             current = self.volume_slider.get()
             new = max(0, current - step)
             self.volume_slider.set(new)
             self.set_volume(new)
 
-    def stop(self):
-        """Arrête la lecture et remet à zéro."""
-        if self.player:
-            self.player.stop()
-            self.status_label.configure(text="⏹ Lecture arrêtée")
-            self.progress_slider.set(0)
-            self.time_label.configure(text="00:00 / 00:00")
-
-    def seek(self, value):
-        """Change la position de lecture."""
-        if self.player and self.player.get_length() > 0:
-            self.player.set_position(value / 100)
-
-    def set_volume(self, value):
-        """Règle le volume."""
-        if self.player:
-            self.player.audio_set_volume(int(value))
-            # Changer l'icône selon le volume
-            if value == 0:
-                self.volume_label.configure(text="🔇")
-            elif value < 30:
-                self.volume_label.configure(text="🔈")
-            elif value < 70:
-                self.volume_label.configure(text="🔉")
-            else:
-                self.volume_label.configure(text="🔊")
-
-    def update_progress(self):
-        """Met à jour le slider et le label de temps."""
+    def toggle_play_pause(self):
         if self.player and self.player.get_media():
-            length = self.player.get_length()
-            time = self.player.get_time()
-            state = self.player.get_state()
-
-            if length > 0 and time >= 0:
-                position = (time / length) * 100
-                self.progress_slider.set(position)
-
-                # Mettre à jour le label de temps
-                time_str = self._format_time(time)
-                length_str = self._format_time(length)
-                self.time_label.configure(text=f"{time_str} / {length_str}")
-
-            # Si la lecture est bloquée mais le média est prêt, relancer pour les vidéos sans piste audio
-            if state in (vlc.State.Opening, vlc.State.Buffering, vlc.State.Paused, vlc.State.Stopped) and self.current_file:
-                # pour éviter un relancement infini, ne relancer que lorsque la vidéo n'est pas en cours de lecture
-                if not self.player.is_playing() and state != vlc.State.Ended:
-                    try:
-                        self.player.play()
-                    except Exception:
-                        pass
-
-        # Rappeler cette fonction toutes les 500ms
-        self.after(500, self.update_progress)
-
-    def _format_time(self, milliseconds):
-        """Formate le temps en mm:ss."""
-        seconds = milliseconds // 1000
-        minutes = seconds // 60
-        seconds = seconds % 60
-        hours = minutes // 60
-        if hours > 0:
-            minutes = minutes % 60
-            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        else:
-            return f"{minutes:02d}:{seconds:02d}"
-
-    def destroy(self):
-        """Nettoie le player à la fermeture."""
-        if self.player:
-            self.player.stop()
-            self.player.release()
-        super().destroy()
+            if self.player.is_playing():
+                self.pause()
+            else:
+                self.play()

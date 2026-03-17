@@ -4,310 +4,273 @@ import tkinter as tk
 import os
 import platform
 import subprocess
-import fitz
-
+import fitz  # PyMuPDF
+from PIL import Image, ImageTk, ImageDraw
 
 class PDFViewer(ctk.CTkFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
 
+        # --- Variables d'état ---
         self.current_file = None
         self.current_page = 0
         self.total_pages = 0
         self.doc = None
         self.zoom_level = 1.0
+        self.page_width = 0
+        self.page_height = 0
+        self.search_query = ""
+        self._is_rendering = False
+        self.photo = None  # Référence pour éviter le Garbage Collection
 
-        # Titre
-        self.label = ctk.CTkLabel(self, text="📄 Lecteur PDF", font=ctk.CTkFont(size=24, weight="bold"))
-        self.label.pack(pady=10)
+        # --- Configuration de l'interface ---
+        self.setup_ui()
+        
+        # --- Bindings globaux ---
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+        self.display_container.bind("<Configure>", self.on_display_resize)
 
-        # Frame principal divisé en deux parties
-        self.main_frame = ctk.CTkFrame(self)
+    def setup_ui(self):
+        """Initialise la structure de l'interface."""
+        self.label = ctk.CTkLabel(self, text="📄 Lecteur PDF Premium", font=ctk.CTkFont(size=22, weight="bold"))
+        self.label.pack(pady=(10, 5))
+
+        self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Frame pour les contrôles (gauche)
-        self.control_panel = ctk.CTkFrame(self.main_frame, width=200)
+        # --- Panneau de Contrôle (Gauche) ---
+        self.control_panel = ctk.CTkFrame(self.main_frame, width=250)
         self.control_panel.pack(side="left", fill="y", padx=(0, 10))
         self.control_panel.pack_propagate(False)
 
-        # Frame pour l'affichage PDF (droite)
-        self.display_frame = ctk.CTkFrame(self.main_frame)
-        self.display_frame.pack(side="right", fill="both", expand=True)
-
-        # ===== PANEL DE CONTRÔLE =====
-        # Bouton ouvrir
-        self.open_btn = ctk.CTkButton(
-            self.control_panel, 
-            text="📂 Ouvrir un PDF", 
-            command=self.open_pdf,
-            height=40
-        )
+        # 1. Ouverture
+        self.open_btn = ctk.CTkButton(self.control_panel, text="📂 Ouvrir un PDF", command=self.open_pdf)
         self.open_btn.pack(pady=10, padx=10, fill="x")
 
-        # Informations fichier
-        self.file_frame = ctk.CTkFrame(self.control_panel)
-        self.file_frame.pack(pady=5, padx=10, fill="x")
-
-        self.file_label = ctk.CTkLabel(
-            self.file_frame, 
-            text="Aucun fichier", 
-            wraplength=180,
-            font=ctk.CTkFont(size=11)
-        )
+        self.file_label = ctk.CTkLabel(self.control_panel, text="Aucun fichier", wraplength=200, font=ctk.CTkFont(size=11))
         self.file_label.pack(pady=5)
 
-        # Navigation pages
-        self.page_frame = ctk.CTkFrame(self.control_panel)
-        self.page_frame.pack(pady=10, padx=10, fill="x")
+        # 2. Recherche
+        self.search_frame = ctk.CTkFrame(self.control_panel)
+        self.search_frame.pack(pady=10, padx=10, fill="x")
+        ctk.CTkLabel(self.search_frame, text="🔍 Recherche", font=ctk.CTkFont(weight="bold")).pack(pady=2)
+        self.search_entry = ctk.CTkEntry(self.search_frame, placeholder_text="Mot-clé...")
+        self.search_entry.pack(pady=5, padx=10, fill="x")
+        self.search_entry.bind("<Return>", self.perform_search)
+        
+        search_btns = ctk.CTkFrame(self.search_frame, fg_color="transparent")
+        search_btns.pack(fill="x", padx=10, pady=5)
+        ctk.CTkButton(search_btns, text="Chercher", command=self.perform_search).pack(side="left", expand=True, padx=2)
+        ctk.CTkButton(search_btns, text="X", width=30, fg_color="gray", command=self.clear_search).pack(side="left", padx=2)
 
-        self.page_label = ctk.CTkLabel(self.page_frame, text="Page: 0/0")
-        self.page_label.pack(pady=5)
-
-        self.page_nav_frame = ctk.CTkFrame(self.page_frame)
-        self.page_nav_frame.pack(pady=5)
-
-        self.prev_btn = ctk.CTkButton(
-            self.page_nav_frame, 
-            text="◀", 
-            width=40,
-            command=self.prev_page,
-            state="disabled"
-        )
+        # 3. Navigation
+        self.nav_frame = ctk.CTkFrame(self.control_panel)
+        self.nav_frame.pack(pady=10, padx=10, fill="x")
+        ctk.CTkLabel(self.nav_frame, text="Navigation", font=ctk.CTkFont(weight="bold")).pack(pady=2)
+        
+        btn_nav_frame = ctk.CTkFrame(self.nav_frame, fg_color="transparent")
+        btn_nav_frame.pack(pady=5)
+        self.prev_btn = ctk.CTkButton(btn_nav_frame, text="◀", width=40, command=self.prev_page, state="disabled")
         self.prev_btn.pack(side="left", padx=2)
-
-        self.page_entry = ctk.CTkEntry(self.page_nav_frame, width=50, justify="center")
+        self.page_entry = ctk.CTkEntry(btn_nav_frame, width=50, justify="center")
         self.page_entry.pack(side="left", padx=2)
         self.page_entry.bind("<Return>", self.go_to_page)
-
-        self.next_btn = ctk.CTkButton(
-            self.page_nav_frame, 
-            text="▶", 
-            width=40,
-            command=self.next_page,
-            state="disabled"
-        )
+        self.next_btn = ctk.CTkButton(btn_nav_frame, text="▶", width=40, command=self.next_page, state="disabled")
         self.next_btn.pack(side="left", padx=2)
+        
+        self.page_total_label = ctk.CTkLabel(self.nav_frame, text="Page: 0/0")
+        self.page_total_label.pack()
 
-        # Contrôle zoom
+        # 4. Zoom
         self.zoom_frame = ctk.CTkFrame(self.control_panel)
         self.zoom_frame.pack(pady=10, padx=10, fill="x")
-
-        self.zoom_label = ctk.CTkLabel(self.zoom_frame, text="Zoom: 100%")
-        self.zoom_label.pack(pady=5)
-
-        self.zoom_slider = ctk.CTkSlider(
-            self.zoom_frame, 
-            from_=0.5, 
-            to=2.0, 
-            command=self.zoom_change
-        )
-        self.zoom_slider.pack(pady=5, fill="x")
+        self.zoom_label = ctk.CTkLabel(self.zoom_frame, text="Zoom: 100%", font=ctk.CTkFont(weight="bold"))
+        self.zoom_label.pack()
+        
+        zoom_ctrls = ctk.CTkFrame(self.zoom_frame, fg_color="transparent")
+        zoom_ctrls.pack(fill="x", padx=5, pady=5)
+        ctk.CTkButton(zoom_ctrls, text="-", width=30, command=self.zoom_out).pack(side="left")
+        self.zoom_slider = ctk.CTkSlider(zoom_ctrls, from_=0.3, to=3.0, command=self.zoom_change)
         self.zoom_slider.set(1.0)
+        self.zoom_slider.pack(side="left", fill="x", expand=True, padx=5)
+        ctk.CTkButton(zoom_ctrls, text="+", width=30, command=self.zoom_in).pack(side="left")
 
-        # Bouton ouvrir externe
-        self.open_ext_btn = ctk.CTkButton(
-            self.control_panel, 
-            text="📎 Ouvrir dans application par défaut", 
-            command=self.open_in_default,
-            state="disabled",
-            fg_color="gray"
-        )
-        self.open_ext_btn.pack(pady=10, padx=10, fill="x")
+        self.fit_window_var = tk.BooleanVar(value=True)
+        ctk.CTkCheckBox(self.zoom_frame, text="Ajuster auto.", variable=self.fit_window_var, command=self.apply_fit).pack(pady=5)
 
-        # ===== ZONE D'AFFICHAGE PDF =====
-        # Canvas avec scrollbar pour le PDF
-        self.canvas_frame = ctk.CTkFrame(self.display_frame)
-        self.canvas_frame.pack(fill="both", expand=True)
+        # 5. Externe
+        self.open_ext_btn = ctk.CTkButton(self.control_panel, text="📎 Application externe", command=self.open_in_default, state="disabled")
+        self.open_ext_btn.pack(side="bottom", pady=20, padx=10, fill="x")
 
-        # Créer un canvas Tkinter standard (CustomTkinter n'a pas de canvas)
+        # --- Zone d'affichage (Droite) ---
+        self.display_container = ctk.CTkFrame(self.main_frame, fg_color="gray20")
+        self.display_container.pack(side="right", fill="both", expand=True)
+
+        self.v_scrollbar = ctk.CTkScrollbar(self.display_container, orientation="vertical")
+        self.v_scrollbar.pack(side="right", fill="y")
+        self.h_scrollbar = ctk.CTkScrollbar(self.display_container, orientation="horizontal")
+        self.h_scrollbar.pack(side="bottom", fill="x")
+
         self.canvas = tk.Canvas(
-            self.canvas_frame, 
-            bg='white',
-            highlightthickness=0
+            self.display_container, bg='gray20', highlightthickness=0,
+            xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set
         )
-        
-        # Scrollbars
-        self.v_scrollbar = ctk.CTkScrollbar(
-            self.canvas_frame, 
-            orientation="vertical",
-            command=self.canvas.yview
-        )
-        self.h_scrollbar = ctk.CTkScrollbar(
-            self.canvas_frame, 
-            orientation="horizontal",
-            command=self.canvas.xview
-        )
-        
-        self.canvas.configure(
-            yscrollcommand=self.v_scrollbar.set,
-            xscrollcommand=self.h_scrollbar.set
-        )
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.v_scrollbar.configure(command=self.canvas.yview)
+        self.h_scrollbar.configure(command=self.canvas.xview)
 
-        # Placement
-        self.canvas.grid(row=0, column=0, sticky="nsew")
-        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.h_scrollbar.grid(row=1, column=0, sticky="ew")
+        self.status_label = ctk.CTkLabel(self, text="Prêt", anchor="w", font=ctk.CTkFont(size=11))
+        self.status_label.pack(side="bottom", fill="x", padx=10)
 
-        self.canvas_frame.grid_rowconfigure(0, weight=1)
-        self.canvas_frame.grid_columnconfigure(0, weight=1)
-
-        # Image ID pour le canvas
-        self.image_on_canvas = None
-
-        # Status bar
-        self.status_label = ctk.CTkLabel(
-            self, 
-            text="Prêt", 
-            anchor="w",
-            font=ctk.CTkFont(size=10)
-        )
-        self.status_label.pack(side="bottom", fill="x", padx=10, pady=2)
-
+    # --- MÉTHODES DE NAVIGATION & FICHIER ---
     def open_pdf(self):
-        """Ouvre un fichier PDF."""
-        path = filedialog.askopenfilename(
-            title="Sélectionner un fichier PDF", 
-            filetypes=[("Fichiers PDF", "*.pdf"), ("Tous les fichiers", "*.*")]
-        )
-        
+        path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if path:
             try:
-                # Fermer l'ancien document
-                if self.doc:
-                    self.doc.close()
-                
-                # Ouvrir le nouveau document avec PyMuPDF
+                if self.doc: self.doc.close()
                 self.doc = fitz.open(path)
                 self.current_file = path
                 self.total_pages = len(self.doc)
                 self.current_page = 0
-                
-                # Mettre à jour l'interface
-                filename = os.path.basename(path)
-                self.file_label.configure(text=f"📄 {filename}")
-                self.label.configure(text=f"📄 {filename[:20]}{'...' if len(filename) > 20 else ''}")
-                
-                # Activer les contrôles
+                page = self.doc[0]
+                self.page_width, self.page_height = page.rect.width, page.rect.height
+                self.file_label.configure(text=os.path.basename(path))
                 self.open_ext_btn.configure(state="normal")
                 self.prev_btn.configure(state="normal")
                 self.next_btn.configure(state="normal")
-                
-                # Afficher la première page
                 self.show_page(0)
-                
-                self.status_label.configure(text=f"✅ PDF chargé: {filename}")
-                
             except Exception as e:
-                self.status_label.configure(text=f"❌ Erreur: {str(e)}")
-                self.doc = None
-        else:
-            self.current_file = None
-            self.file_label.configure(text="Aucun fichier")
-            self.open_ext_btn.configure(state="disabled")
-            self.status_label.configure(text="Aucun fichier sélectionné")
+                self.status_label.configure(text=f"❌ Erreur: {e}")
 
     def show_page(self, page_num):
-        """Affiche une page spécifique."""
-        if not self.doc or page_num < 0 or page_num >= self.total_pages:
-            return
-
+        if not self.doc or self._is_rendering: return
+        self._is_rendering = True
         try:
-            # Obtenir la page
-            page = self.doc[page_num]
-            
-            # Appliquer le zoom
-            zoom_matrix = fitz.Matrix(self.zoom_level, self.zoom_level)
-            pix = page.get_pixmap(matrix=zoom_matrix)
-            
-            # Convertir en image Tkinter
-            from PIL import Image, ImageTk
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            self.photo = ImageTk.PhotoImage(img)
-            
-            # Mettre à jour le canvas
-            if self.image_on_canvas:
-                self.canvas.delete(self.image_on_canvas)
-            
-            self.canvas.configure(scrollregion=(0, 0, pix.width, pix.height))
-            self.image_on_canvas = self.canvas.create_image(
-                0, 0, 
-                anchor="nw", 
-                image=self.photo
-            )
-            
-            # Mettre à jour les labels
             self.current_page = page_num
-            self.page_label.configure(text=f"Page: {page_num + 1}/{self.total_pages}")
+            page = self.doc[page_num]
+
+            if self.fit_window_var.get():
+                self.calculate_fit_zoom()
+
+            # Rendu PyMuPDF
+            matrix = fitz.Matrix(self.zoom_level, self.zoom_level)
+            pix = page.get_pixmap(matrix=matrix)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+            # Surlignage Recherche
+            if self.search_query:
+                overlay = Image.new('RGBA', img.size, (255, 255, 0, 0))
+                draw = ImageDraw.Draw(overlay)
+                for rect in page.search_for(self.search_query):
+                    scaled = [rect.x0 * self.zoom_level, rect.y0 * self.zoom_level,
+                              rect.x1 * self.zoom_level, rect.y1 * self.zoom_level]
+                    draw.rectangle(scaled, fill=(255, 255, 0, 100))
+                img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+
+            self.photo = ImageTk.PhotoImage(img)
+            self.canvas.delete("all")
+            
+            # Centrage si plus petit que le canvas
+            cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
+            cx, cy = max(img.width, cw) / 2, max(img.height, ch) / 2
+            
+            self.canvas.create_image(cx, cy, image=self.photo, anchor="center")
+            self.canvas.config(scrollregion=(0, 0, max(img.width, cw), max(img.height, ch)))
+
+            # Mise à jour UI
+            self.page_total_label.configure(text=f"Page: {page_num + 1}/{self.total_pages}")
             self.page_entry.delete(0, "end")
             self.page_entry.insert(0, str(page_num + 1))
-            
-        except Exception as e:
-            self.status_label.configure(text=f"❌ Erreur affichage: {str(e)}")
+            self.zoom_label.configure(text=f"Zoom: {int(self.zoom_level * 100)}%")
+        finally:
+            self._is_rendering = False
 
-    def prev_page(self):
-        """Page précédente."""
-        if self.current_page > 0:
-            self.show_page(self.current_page - 1)
-
-    def next_page(self):
-        """Page suivante."""
-        if self.current_page < self.total_pages - 1:
-            self.show_page(self.current_page + 1)
-
-    def go_to_page(self, event=None):
-        """Va à une page spécifique."""
-        try:
-            page = int(self.page_entry.get()) - 1
-            if 0 <= page < self.total_pages:
-                self.show_page(page)
-        except ValueError:
-            pass
-
-    def zoom_change(self, value):
-        """Change le niveau de zoom."""
-        self.zoom_level = value
-        self.zoom_label.configure(text=f"Zoom: {int(value * 100)}%")
-        if self.doc:
-            self.show_page(self.current_page)
-
+    # --- MÉTHODES DE ZOOM ---
     def zoom_in(self):
-        if self.zoom_level < 2.0:
-            self.zoom_level = min(2.0, self.zoom_level + 0.1)
-            self.zoom_slider.set(self.zoom_level)
-            self.show_page(self.current_page)
+        if self.doc:
+            self.zoom_slider.set(min(3.0, self.zoom_slider.get() + 0.2))
+            self.zoom_change(self.zoom_slider.get())
 
     def zoom_out(self):
-        if self.zoom_level > 0.5:
-            self.zoom_level = max(0.5, self.zoom_level - 0.1)
-            self.zoom_slider.set(self.zoom_level)
+        if self.doc:
+            self.zoom_slider.set(max(0.3, self.zoom_slider.get() - 0.2))
+            self.zoom_change(self.zoom_slider.get())
+
+    def zoom_change(self, value):
+        if self.doc:
+            if self.fit_window_var.get(): self.fit_window_var.set(False)
+            self.zoom_level = float(value)
             self.show_page(self.current_page)
 
-    def scroll_down(self):
-        self.canvas.yview_scroll(1, 'units')
+    def calculate_fit_zoom(self):
+        dw = self.canvas.winfo_width() - 30
+        dh = self.canvas.winfo_height() - 30
+        if dw > 10 and dh > 10:
+            self.zoom_level = min(dw / self.page_width, dh / self.page_height)
+            self.zoom_slider.set(self.zoom_level)
 
-    def scroll_up(self):
-        self.canvas.yview_scroll(-1, 'units')
+    def apply_fit(self):
+        if self.fit_window_var.get() and self.doc: self.show_page(self.current_page)
+
+    # --- RECHERCHE ---
+    def perform_search(self, event=None):
+        query = self.search_entry.get().strip()
+        if query:
+            self.search_query = query
+            self.show_page(self.current_page)
+            self.status_label.configure(text=f"🔍 Recherche: '{query}'")
+        else: self.clear_search()
+
+    def clear_search(self):
+        self.search_query = ""
+        self.search_entry.delete(0, "end")
+        self.show_page(self.current_page)
+        self.status_label.configure(text="✅ Recherche effacée")
+
+    # --- UTILS ---
+    def _on_mousewheel(self, event):
+        if not self.doc: return
+        # Ctrl + Molette = Zoom
+        if event.state & 0x0004:
+            if event.delta > 0 or event.num == 4: self.zoom_in()
+            else: self.zoom_out()
+        else: # Molette simple = Scroll
+            if platform.system() == "Windows":
+                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            else:
+                if event.num == 4: self.canvas.yview_scroll(-1, "units")
+                elif event.num == 5: self.canvas.yview_scroll(1, "units")
+
+    def on_display_resize(self, event):
+        if self.fit_window_var.get() and self.doc:
+            if hasattr(self, '_res_id'): self.after_cancel(self._res_id)
+            self._res_id = self.after(150, lambda: self.show_page(self.current_page))
+
+    def prev_page(self):
+        if self.current_page > 0: self.show_page(self.current_page - 1)
+
+    def next_page(self):
+        if self.current_page < self.total_pages - 1: self.show_page(self.current_page + 1)
+
+    def go_to_page(self, event=None):
+        try:
+            val = int(self.page_entry.get()) - 1
+            if 0 <= val < self.total_pages: self.show_page(val)
+        except: pass
 
     def open_in_default(self):
-        """Ouvre le PDF dans l'application par défaut."""
-        if not self.current_file:
-            return
-
+        if not self.current_file: return
         try:
-            if platform.system() == "Windows":
-                os.startfile(self.current_file)
-            elif platform.system() == "Darwin":
-                subprocess.call(["open", self.current_file])
-            else:
-                subprocess.call(["xdg-open", self.current_file])
-            
-            self.status_label.configure(text="📎 Ouvert dans application externe")
-            
-        except Exception as e:
-            self.status_label.configure(text=f"❌ Erreur: {str(e)}")
+            if platform.system() == "Windows": os.startfile(self.current_file)
+            elif platform.system() == "Darwin": subprocess.call(["open", self.current_file])
+            else: subprocess.call(["xdg-open", self.current_file])
+        except Exception as e: self.status_label.configure(text=f"❌ Erreur: {e}")
 
-    def destroy(self):
-        """Nettoie les ressources."""
-        if self.doc:
-            self.doc.close()
-        super().destroy()
+if __name__ == "__main__":
+    app = ctk.CTk()
+    app.title("Mon Lecteur PDF")
+    app.geometry("1100x800")
+    PDFViewer(app).pack(fill="both", expand=True)
+    app.mainloop()

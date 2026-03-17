@@ -1,7 +1,9 @@
-from actions.freeze import Freeze
 from config.settings import FINGER_TIP_IDS
 from gestures.base_gesture import BaseGesture
 class Fist(BaseGesture):
+    def __init__(self):
+        self.fisting = False
+
     @property
     def name(self):
         return "CLOSED_FIST"
@@ -20,4 +22,5 @@ class Fist(BaseGesture):
     
     def action(self, landmarks):
         if self.detect(landmarks):
-            print("Play/Pause (MP3 & MP4)")
+            if not self.fisting:
+                print("Play/Pause (MP3 & MP4)")

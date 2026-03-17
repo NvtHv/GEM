@@ -4,7 +4,7 @@ from config.settings import FINGER_TIP_IDS
 class OpenHand(BaseGesture):
     @property
     def name(self):
-        return "OPEN_HAND"
+        return "OPENED_HAND"
     
     def detect(self, landmarks):
         fingers_up = 0
@@ -14,9 +14,8 @@ class OpenHand(BaseGesture):
             if tip < pip:
                 fingers_up += 1
 
-        return fingers_up >= 4
+        return fingers_up >= 5
     
     def action(self, landmarks):
         if self.detect(landmarks):
-            print("Return to main menu")
-
+            print("Pause/Play")

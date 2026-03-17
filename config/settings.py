@@ -52,3 +52,40 @@ CAM_MARGIN = 50
 
 #sensibilité de la deplacement de la souris 
 SENSITIVITY = 2
+
+GESTURE_THRESHOLDS = {
+    # ===== SEUILS DE BASE =====
+    
+    # Comptage des doigts (comparaison verticale)
+    'finger_up_threshold': 0.02,    # Marge pour considérer un doigt levé
+                                    # (le bout doit être plus haut que l'articulation)
+    
+    # ===== GESTE OK =====
+    
+    'ok_threshold': 0.05,           # Distance max entre pouce et index
+                                    # 0.05 = 5% de la largeur de l'écran
+    'ok_fingers_up': True,          # Les autres doigts doivent-ils être levés ?
+    
+    # ===== ÉCARTEMENT DES DOIGTS =====
+    
+    'finger_spread': 0.1,            # Écart minimum entre doigts pour "main ouverte"
+    'peace_spread': 0.08,            # Écart spécifique pour le signe peace
+    'zoom_spread': 0.15,             # Écart pour gestes de zoom
+    
+    # ===== GESTES DYNAMIQUES (SWIPE) =====
+    
+    'swipe_threshold': 0.2,          # Amplitude minimale du mouvement (20% écran)
+    'swipe_history': 10,              # Nombre de frames à garder en mémoire
+    'swipe_min_frames': 5,            # Frames minimum pour détecter un swipe
+    
+    # ===== GESTES DE LA MAIN =====
+    
+    'fist_fingers_down': 4,           # Nombre de doigts baissés pour un poing
+    'open_hand_fingers_up': 5,        # Nombre de doigts levés pour main ouverte
+    
+    # ===== GESTES AVANCÉS (optionnel) =====
+    
+    'pinch_threshold': 0.03,          # Distance pour pincement (pouce-index)
+    'rotation_threshold': 0.3,         # Angle pour détection rotation
+    'two_hands_distance': 0.3,         # Distance entre deux mains
+}
