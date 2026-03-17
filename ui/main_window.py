@@ -48,7 +48,7 @@ class MainWindow(ctk.CTk):
         self.gem_enabled = False
         self.gem_thread = None
         self.gem_stop_event = threading.Event()
-        self.gesture_active = {'OPENED_HAND': False, 'INDEX_POINT_UP': False, 'TWO_FINGERS_UP': False}
+        self.gesture_active = {'OPENED_HAND': False, 'INDEX_POINT_UP': False, 'TWO_FINGERS_UP': False, 'PINKY_UP': False, 'MIDDLE_RING_UP': False}
 
     @property
     def current_view(self):
@@ -116,17 +116,17 @@ class MainWindow(ctk.CTk):
             if hasattr(view, 'toggle_play_pause'): view.toggle_play_pause()
         elif gesture == 'INDEX_POINT_UP':
             if hasattr(view, 'increase_volume'): view.increase_volume()
+            elif hasattr(view, 'zoom_in'): view.zoom_in()
             elif tab_name == 'PDF' and hasattr(view, 'zoom_in'): view.zoom_in()
         elif gesture == 'TWO_FINGERS_UP':
             if hasattr(view, 'decrease_volume'): view.decrease_volume()
+            elif hasattr(view, 'zoom_out'): view.zoom_out()
             elif tab_name == 'PDF' and hasattr(view, 'zoom_out'): view.zoom_out()
-        # elif gesture == 'ZOOM_IN':
-        #     if hasattr(view, 'zoom_in'): view.zoom_in()
-        # elif gesture == 'ZOOM_OUT':
-        #     if hasattr(view, 'zoom_out'): view.zoom_out()
-        # elif gesture == 'SWIPE_RIGHT':
-        #     if tab_name == 'PDF' and hasattr(view, 'next_page'): view.next_page()
-        #     elif hasattr(view, 'play'): view.play()
-        # elif gesture == 'SWIPE_LEFT':
-        #     if tab_name == 'PDF' and hasattr(view, 'prev_page'): view.prev_page()
-            # elif hasattr(view, 'stop'): view.stop()
+        elif gesture == 'PINKY_UP':
+            if hasattr(view, 'play_next'): view.play_next()
+            elif hasattr(view, '_skip'): view._skip(5000)
+            elif tab_name == 'PDF' and hasattr(view, 'next_page'): view.next_page()
+        elif gesture == 'MIDDLE_RING_UP':
+            if hasattr(view, 'play_previous'): view.play_previous()
+            elif hasattr(view, '_skip'): view._skip(-5000)
+            elif tab_name == 'PDF' and hasattr(view, 'previous_page'): view.previous_page()
