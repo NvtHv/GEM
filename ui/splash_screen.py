@@ -34,7 +34,7 @@ class SplashScreen(ctk.CTk):
         ctk.CTkLabel(self, text="GEM Application", font=("Arial", 20, "bold")).pack(pady=(10, 5))
 
         # --- Sous-titre ---
-        ctk.CTkLabel(self, text="Gesture Echo of Movement", font=("Arial", 14, "italic")).pack(pady=(0, 15))
+        ctk.CTkLabel(self, text="Gesture Echo of Movements", font=("Arial", 14, "italic")).pack(pady=(0, 15))
 
         # --- Texte Chargement ---
         ctk.CTkLabel(self, text="Chargement...", font=("Arial", 14)).pack(pady=(0, 20))

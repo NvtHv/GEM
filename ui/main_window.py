@@ -59,7 +59,7 @@ class MainWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("GEM - Gesture Echo of Movement")
+        self.title("GEM - Gesture Echo of Movements")
         self.geometry("1024x700")
         self.minsize(860, 560)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -317,7 +317,7 @@ class MainWindow(ctk.CTk):
             print(f"Impossible de changer l'icône du tuto : {e}")
 
         tutorial_text = """
-    Bienvenue dans GEM - Gesture Echo of Movement !
+    Bienvenue dans GEM - Gesture Echo of Movements !
 
     Instructions :
     1. Activer GEM avec le switch "Activer GEM".
